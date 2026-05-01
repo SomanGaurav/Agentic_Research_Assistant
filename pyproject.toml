@@ -1,0 +1,27 @@
+[project]
+name = "agentic_deep_researcher"
+version = "0.1.0"
+description = "Deep Research Agent using Crew AI and Web Search API"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "crewai==1.14.4",
+    "crewai-tools==0.76.0",
+    "requests>=2.31.0",
+    "mcp>=1.6.0",
+    "openai>=2.15.0",
+    "python-dotenv>=1.1.0",
+    "streamlit>=1.44.1",
+    "linkup>=0.1.0",
+    "pydantic>=2.0.0",
+    "setuptools>=82.0.1",
+    "duckduckgo-search>=8.1.1",
+    "google>=3.0.0",
+    "google-genai>=1.74.0",
+    "matplotlib>=3.10.9",
+    "pymupdf>=1.27.2.3",
+    "networkx>=3.6.1",
+]
+
+[tool.setuptools]
+py-modules = ["agents", "app", "server"]
