@@ -6,7 +6,7 @@ from agent_stories import websearch_backstory, hypothesis_backstory, visualizati
 
 llm_client = get_llm_client()
 
-web_searcher = Agent(
+web_search = Agent(
         role="Research Paper Finder",
         goal="Find highly relevant research papers from arXiv with titles, authors, summaries, and links.",
         backstory=websearch_backstory,

@@ -12,7 +12,7 @@ load_dotenv()
 #Custom packages 
 from agent_stories import websearch_backstory
 from utils import arxiv_search , get_llm_client, execute_plotting_code
-from agent_params import web_searcher, hypothesis_agent, visualization_agent
+from agent_params import web_search, hypothesis_agent, visualization_agent
 
 # -------------------------------------------------
 # LLM configuration (CrewAI 0.86.0)
@@ -63,7 +63,7 @@ def create_research_crew(query: str):
     # -----------------------------
     # Agents (CrewAI 0.86.0 with decorated tools)
     # -----------------------------
-    web_searcher = web_searcher
+    web_searcher = web_search
 
     research_analyst = Agent(
         role="Research Analyst",
