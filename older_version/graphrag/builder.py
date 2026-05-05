@@ -37,7 +37,7 @@ import anthropic
 # Would need to replace it with actual LLM used to extract knowledge graph from the chunks. Commented
 # for now to avoid import errors . 
 # Use gemini clients after understanding the graph builder . 
-from ingestor import Chunk
+from older_version.graphrag.ingestor import Chunk
 
 
 # ---------------------------------------------------------------------------

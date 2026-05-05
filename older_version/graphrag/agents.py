@@ -35,7 +35,7 @@ from typing import Any, Dict, List, Optional
 
 import anthropic
 
-from retriever import RetrievalResult
+from older_version.graphrag.retriever import RetrievalResult
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 from pathlib import Path
 # Assuming your provided code is in a file named ingestion_layer.py
-from ingestor import PaperIngestor 
+from older_version.graphrag.ingestor import PaperIngestor 
 
 def run_test():
     # 1. Initialize the ingestor pointing to your PDF folder

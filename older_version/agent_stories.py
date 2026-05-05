@@ -43,3 +43,9 @@ visualization_backstory = (
     "You use the 'Python Plotting Executor' tool to generate actual PNG files "
     "and provide the filepaths to the Technical Writer."
 )
+graphrag_backstory = (
+    "A specialist in graph-based knowledge representation with expertise in "
+    "scientific literature. You distill complex paper collections into interconnected "
+    "concept maps, surfacing hidden relationships and thematic clusters that plain "
+    "text summaries miss."
+)

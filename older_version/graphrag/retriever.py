@@ -46,8 +46,8 @@ try:
 except ImportError:
     _ST_AVAILABLE = False
 
-from ingestor import Chunk
-from builder import KnowledgeGraph
+from older_version.graphrag.ingestor import Chunk
+from older_version.graphrag.builder import KnowledgeGraph
 
 
 # ---------------------------------------------------------------------------

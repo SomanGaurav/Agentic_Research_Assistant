@@ -37,9 +37,9 @@ import anthropic
 # Resolve imports relative to the project root
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from ingestor           import PaperIngestor, Chunk
-from builder                import KnowledgeGraphBuilder, KnowledgeGraph
-from retriever   import VectorIndex, HybridRetriever, RetrievalResult
+from older_version.graphrag.ingestor           import PaperIngestor, Chunk
+from older_version.graphrag.builder                import KnowledgeGraphBuilder, KnowledgeGraph
+from older_version.graphrag.retriever   import VectorIndex, HybridRetriever, RetrievalResult
 from agents                import (
     AgentOrchestrator, AgentResponse, AgentType
 )

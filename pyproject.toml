@@ -21,6 +21,9 @@ dependencies = [
     "matplotlib>=3.10.9",
     "pymupdf>=1.27.2.3",
     "networkx>=3.6.1",
+    "neo4j>=6.1.0",
+    "langchain-groq>=1.1.2",
+    "litellm>=1.83.0",
 ]
 
 [tool.setuptools]

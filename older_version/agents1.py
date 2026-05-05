@@ -10,48 +10,9 @@ from crewai.tools import tool
 load_dotenv()
 
 #Custom packages 
-from agent_stories import websearch_backstory
+from older_version.agent_stories import websearch_backstory
 from utils import arxiv_search , get_llm_client, execute_plotting_code
-from agent_params import web_search, hypothesis_agent, visualization_agent
-
-# -------------------------------------------------
-# LLM configuration (CrewAI 0.86.0)
-# -------------------------------------------------
-# def get_llm_client():
-#     from crewai import LLM
-#     return LLM(
-#         model="ollama/tom_himanen/deepseek-r1-roo-cline-tools:1.5b",
-#         base_url="http://localhost:11434"
-#     )
-
-# -------------------------------------------------
-# Tool: LinkUp Search (using @tool decorator)
-# -------------------------------------------------
-@tool("LinkUp Web Search")
-def linkup_search(query: str) -> str:
-    """
-    Search the web using LinkUp API and return comprehensive search results with sources.
-    
-    Args:
-        query: The search query to look up information for
-        
-    Returns:
-        Formatted search results with source links and relevant information
-    """
-    try:
-        from linkup import LinkupClient
-        client = LinkupClient(api_key=os.getenv("LINKUP_API_KEY"))
-        response = client.search(
-            query=query,
-            depth="standard",
-            output_type="searchResults"
-        )
-        return str(response)
-    except Exception as e:
-        return f"Error occurred while searching: {str(e)}"
-
-
-
+from older_version.agent_params import web_search, hypothesis_agent, visualization_agent , graphrag_builder, research_analyst_graph
 
 
 # -------------------------------------------------
@@ -101,20 +62,32 @@ def create_research_crew(query: str):
     hypothesis_task = Task(
         description=(
             f"Analyze the following research query: '{query}'. "
-            "Formulate 3 distinct, highly technical, and testable hypotheses "
+            "Formulate a highly technical, and testable hypotheses "
             "or architectural approaches to solve this problem. Detail the theoretical "
             "justification for each."
         ),
         agent=hypothesis_agent,
-        expected_output="A structured list of 3 detailed hypotheses with theoretical justifications."
+        expected_output="A structured , detailed hypotheses with theoretical justifications."
     )
 
     search_task = Task(
-        description=f"Search for comprehensive and up-to-date information about: {query}. Use the linkup_search tool to perform web searches and gather relevant information with source links.",
+        description=f"Search for comprehensive and up-to-date information about: {query}. Use the arxiv_search tool to perform web searches and gather relevant research paper information with source links.",
         agent=web_searcher,
         expected_output="Raw search results with source links and references.",
-        tools=[linkup_search],
+        tools=[arxiv_search],
         context=[hypothesis_task],
+    )
+
+    graphrag_task = Task(
+        description=(
+            "Take the JSON paper list and build a GraphRAG knowledge graph. "
+            "Store all nodes (papers, concepts, authors) and edges in Neo4j. "
+            "Return the graph summary (node counts, concept list)."
+        ),
+        expected_output="Confirmation that graph was stored + a summary of nodes and concepts.",
+        agent=graphrag_builder,
+        context=[search_task],
+
     )
 
     analysis_task = Task(
@@ -126,7 +99,16 @@ def create_research_crew(query: str):
         expected_output="Structured analysis with verified insights and sources.",
         context=[search_task],
     )
-
+    graph_analysis_task = Task(
+        description=(
+            "Use the Graph Query Tool to explore the Neo4j knowledge graph for: {topic}. "
+            "Query key concepts from the graph summary. Identify dominant methods, "
+            "author clusters, conflicts, and gaps. Cite every claim with a paper title."
+        ),
+        expected_output="Structured research report with Overview, Key Concepts, Conflicts, Open Questions.",
+        agent=research_analyst,
+        context=[graphrag_task],    # gives analyst the concept list to query
+    )
     coding_task = Task(
         description=(
             "Based on the research analysis, write any necessary code, examples, "
@@ -187,10 +169,11 @@ def create_research_crew(query: str):
             visualization_agent,
             technical_writer,
         ],
+
         tasks=[
             hypothesis_task,
             search_task,
-            analysis_task,
+            graph_analysis_task,
             coding_task,
             visualization_task,
             writing_task,
@@ -201,7 +184,7 @@ def create_research_crew(query: str):
 
 
 # -------------------------------------------------
-# Entry point (CrewAI 0.86.0 compatible)
+# Entry point 
 # -------------------------------------------------
 def run_research(query: str):
     """

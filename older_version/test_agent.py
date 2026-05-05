@@ -1,8 +1,8 @@
 from crewai import Task, Crew
 from dotenv import load_dotenv
 load_dotenv()
-from agent_params import web_searcher, hypothesis_agent, visualization_agent
-from agent_stories import websearch_backstory
+from older_version.agent_params import web_search, hypothesis_agent, visualization_agent , graphrag_builder
+from older_version.agent_stories import websearch_backstory
 from utils import arxiv_search , get_llm_client
 # Import all your agents here
 # from agents.other_agent import other_agent
@@ -11,10 +11,9 @@ from utils import arxiv_search , get_llm_client
 # 🔹 Register agents in a dictionary
 AGENTS = {
     "HYPOTHESIS": hypothesis_agent,
-    "WEBSEARCH": web_searcher,
+    "WEBSEARCH": web_search,
     "VISUALIZER": visualization_agent,
-    # "other": other_agent,
-    # "xyz": xyz_agent,
+    "GRAPHRAG": graphrag_builder,
 }
 
 
