@@ -1,3 +1,4 @@
+from altair import when
 from crewai import Task
 from agents.synthesis_agent import research_analyst
 from agents.search_agent import web_search
@@ -8,6 +9,8 @@ from agents.analytics_agent import analytics_agent
 from agents.explanation_agent import explainer_agent
 from agents.concept_explainer_agent import concept_explainer_agent
 from agents.citation_agent import citation_agent
+from agents.literature_agent import literature_agent
+
 from utils import arxiv_search
 
 
@@ -225,6 +228,34 @@ def make_find_references_task(query: str = "the given paper", **kwargs) -> Task:
     )
 
 
+def make_literature_review_task(query: str = "the given topic", **kwargs) -> Task:
+    return Task(
+        description=(
+            f"Conduct a literature review on: '{query}'.\n\n"
+            "STRUCTURE YOUR REVIEW AS:\n"
+            "1. Overview — what this field is about (2-3 sentences)\n"
+            "2. Foundational Works — seminal papers that established the field\n"
+            "3. Key Developments — major advances and turning points\n"
+            "4. Recent State of the Art — latest papers and current directions\n"
+            "5. Open Problems — what remains unsolved\n\n"
+            "TOOL USAGE:\n"
+            "- Always call arxiv_literature_search first with the full query\n"
+            "- If no time constraint: also call arxiv_find_seminal\n"
+            "- If user wants recent work: also call arxiv_recent_advances\n"
+            "- Synthesize ALL results into the structured review above\n\n"
+            "QUALITY RULES:\n"
+            "- Cite every paper by title and year\n"
+            "- Group papers by theme not just chronology\n"
+            "- Highlight which papers are most important and why\n"
+            "- Keep total response under 600 words"
+        ),
+        agent=literature_agent,
+        expected_output=(
+            "A structured literature review covering foundational works, "
+            "key developments, recent advances, and open problems. "
+            "Every paper cited by title and year. Under 600 words."
+        )
+    )
 
 TASK_REGISTRY = {
     "search_arxiv":             make_search_task,
@@ -238,7 +269,9 @@ TASK_REGISTRY = {
     "explain_paper":            make_explain_task, 
     "explain_concept":          make_concept_explain_task, 
     "find_citations":           make_find_citations_task,
-    "find_references":          make_find_references_task
+    "find_references":          make_find_references_task , 
+    "literature_review":        make_literature_review_task, 
+    
 }
 
 # knows what each task does and when to use it.
@@ -254,4 +287,5 @@ TASK_DESCRIPTIONS = {
     "explain_concept": "Explain any topic, concept, algorithm or technique from the model's own knowledge — NO paper or search needed",
     "find_citations":         "Find papers that cited a given paper and trace its research lineage forward using Semantic Scholar",
     "find_references":        "Find the foundational papers a given paper builds upon using Semantic Scholar",
+    "literature_review":      "Conduct a full literature review on a topic — finds foundational papers, recent advances, and synthesizes the field. Use instead of search_arxiv when user asks for a survey, overview, or literature review. Handles time constraints like 'after 2020' or 'last 3 years' automatically.",
 }

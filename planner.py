@@ -54,6 +54,12 @@ TASK SELECTION RULES:
 - Only include tasks that are actually needed — be minimal
 - You MUST use task names EXACTLY as they appear in the available tasks list
 - Do NOT invent task names, paraphrase them, or combine them
+- Use literature_review instead of search_arxiv when user asks for:
+  a survey, overview, literature review, state of the art, 
+  foundational papers, seminal works, or recent advances on a topic
+- Use search_arxiv only for a quick targeted paper search with a specific title or narrow query
+- literature_review handles all time constraints automatically — 
+  do NOT add separate tasks for time filtering
 
 INPUT RULES:
 - search_arxiv ALWAYS requires a 'query' input — use the user's topic

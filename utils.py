@@ -15,7 +15,270 @@ from older_version.graphdb import Neo4jGraphDB
 import fitz
 import time 
 load_dotenv()
+import arxiv
+import os
+from langchain_groq import ChatGroq
+from datetime import datetime
+# Set your API key
+os.environ["GROQ_API_KEY"] = "your_groq_api_key_here"
 
+# Initialize the LLM
+llm = ChatGroq(
+    model="compound-beta",
+    temperature=0,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2
+)
+
+def parse_time_constraint(query: str) -> tuple[str, int | None, int | None, str]:
+    """
+    Extract year constraints from natural language query.
+    Returns (clean_query, start_year, end_year, constraint_description)
+    """
+    clean = query
+    start_year = None
+    end_year = None
+    desc = "no time constraint"
+    current_year = datetime.now().year
+
+    # "after 2020", "since 2021", "from 2020"
+    after = re.search(r'\b(?:after|since|from)\s+(20\d{2})\b', query, re.I)
+    if after:
+        start_year = int(after.group(1))
+        clean = re.sub(after.group(0), "", clean).strip()
+        desc = f"after {start_year}"
+
+    # "before 2022", "until 2022", "up to 2022"
+    before = re.search(r'\b(?:before|until|up to)\s+(20\d{2})\b', query, re.I)
+    if before:
+        end_year = int(before.group(1))
+        clean = re.sub(before.group(0), "", clean).strip()
+        desc = f"before {end_year}"
+
+    # "in 2022", "in the last 3 years"
+    in_year = re.search(r'\bin\s+(20\d{2})\b', query, re.I)
+    if in_year:
+        start_year = int(in_year.group(1))
+        end_year = int(in_year.group(1))
+        clean = re.sub(in_year.group(0), "", clean).strip()
+        desc = f"in {start_year}"
+
+    # "last N years"
+    last_n = re.search(r'\blast\s+(\d+)\s+years?\b', query, re.I)
+    if last_n:
+        n = int(last_n.group(1))
+        start_year = current_year - n
+        clean = re.sub(last_n.group(0), "", clean).strip()
+        desc = f"last {n} years (from {start_year})"
+
+    # "between 2019 and 2022"
+    between = re.search(r'\bbetween\s+(20\d{2})\s+and\s+(20\d{2})\b', query, re.I)
+    if between:
+        start_year = int(between.group(1))
+        end_year = int(between.group(2))
+        clean = re.sub(between.group(0), "", clean).strip()
+        desc = f"between {start_year} and {end_year}"
+
+    return clean.strip(), start_year, end_year, desc
+
+
+def filter_by_year(results: list, start_year: int | None, end_year: int | None) -> list:
+    filtered = []
+    for paper in results:
+        year = paper.published.year
+        if start_year and year < start_year:
+            continue
+        if end_year and year > end_year:
+            continue
+        filtered.append(paper)
+    return filtered
+
+
+@tool("arxiv_literature_search")
+def arxiv_literature_search(query: str) -> str:
+    """
+    Perform a literature review quality search on ArXiv.
+    Handles time constraints automatically from the query.
+    Returns papers ranked by citation proxy (submission date + relevance).
+    Use this instead of basic arxiv_search for all paper discovery tasks.
+    """
+    try:
+        clean_query, start_year, end_year, time_desc = parse_time_constraint(query)
+
+        print(f"Literature search: '{clean_query}' | Time: {time_desc}")
+
+        # Fetch more than needed so we can filter and rank
+        search = arxiv.Search(
+            query=clean_query,
+            max_results=40,
+            sort_by=arxiv.SortCriterion.Relevance,
+        )
+
+        all_results = list(search.results())
+
+        # Apply time filter if needed
+        if start_year or end_year:
+            filtered = filter_by_year(all_results, start_year, end_year)
+            if not filtered:
+                return (
+                    f"No papers found for '{clean_query}' with constraint: {time_desc}.\n"
+                    f"Found {len(all_results)} papers without the time filter. "
+                    f"Try relaxing the time constraint."
+                )
+        else:
+            filtered = all_results
+
+        if not filtered:
+            return f"No papers found for: {query}"
+
+        # Rank by recency as citation proxy
+        # ArXiv doesn't expose citation counts — we use a combined score:
+        # primary sort: relevance (already sorted by arxiv)
+        # secondary sort: newer papers weighted slightly higher
+        current_year = datetime.now().year
+
+        def score(paper):
+            age = current_year - paper.published.year
+            recency_score = max(0, 10 - age)          # newer = higher score
+            return recency_score
+
+        if not (start_year or end_year):
+            # No time constraint — sort by relevance + recency combined
+            filtered = sorted(filtered, key=score, reverse=True)
+
+        # Take top 8 for literature review
+        top_papers = filtered[:8]
+
+        output = [
+            f"Literature Review Search Results",
+            f"Query: '{clean_query}' | Time filter: {time_desc}",
+            f"Papers found: {len(filtered)} | Showing top: {len(top_papers)}\n"
+        ]
+
+        for i, paper in enumerate(top_papers, 1):
+            authors = ", ".join(a.name for a in paper.authors[:3])
+            if len(paper.authors) > 3:
+                authors += " et al."
+
+            output.append(
+                f"{i}. {paper.title}\n"
+                f"   Authors: {authors}\n"
+                f"   Year: {paper.published.year}\n"
+                f"   ArXiv ID: {paper.entry_id.split('/')[-1]}\n"
+                f"   Abstract: {paper.summary[:200]}...\n"
+            )
+
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"Literature search failed: {str(e)}"
+
+
+@tool("arxiv_find_seminal")
+def arxiv_find_seminal(topic: str) -> str:
+    """
+    Find seminal and foundational papers on a topic.
+    Searches for older, highly referenced works that established the field.
+    Use this to find the must-read papers that everything else builds on.
+    """
+    try:
+        clean_topic, _, _, _ = parse_time_constraint(topic)
+
+        # Search with relevance and take older papers
+        search = arxiv.Search(
+            query=clean_topic,
+            max_results=50,
+            sort_by=arxiv.SortCriterion.Relevance,
+        )
+
+        results = list(search.results())
+
+        if not results:
+            return f"No papers found for: {topic}"
+
+        # Seminal papers tend to be older — filter papers > 3 years old
+        current_year = datetime.now().year
+        older_papers = [
+            p for p in results
+            if (current_year - p.published.year) >= 3
+        ]
+
+        # If no older papers, fall back to all results
+        candidates = older_papers if older_papers else results
+
+        # Sort by oldest first among top relevance results
+        candidates = sorted(candidates, key=lambda p: p.published.year)
+
+        top = candidates[:5]
+
+        output = [
+            f"Seminal Papers on '{clean_topic}':\n"
+        ]
+
+        for i, paper in enumerate(top, 1):
+            authors = ", ".join(a.name for a in paper.authors[:3])
+            if len(paper.authors) > 3:
+                authors += " et al."
+
+            output.append(
+                f"{i}. {paper.title}\n"
+                f"   Authors: {authors}\n"
+                f"   Year: {paper.published.year}\n"
+                f"   ArXiv ID: {paper.entry_id.split('/')[-1]}\n"
+                f"   Abstract: {paper.summary[:200]}...\n"
+            )
+
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"Seminal paper search failed: {str(e)}"
+
+
+@tool("arxiv_recent_advances")
+def arxiv_recent_advances(topic: str) -> str:
+    """
+    Find the most recent papers on a topic from the last 2 years.
+    Use this to find cutting edge and state of the art work.
+    """
+    try:
+        clean_topic, _, _, _ = parse_time_constraint(topic)
+        current_year = datetime.now().year
+        cutoff_year = current_year - 2
+
+        search = arxiv.Search(
+            query=clean_topic,
+            max_results=30,
+            sort_by=arxiv.SortCriterion.SubmittedDate,  # newest first
+        )
+
+        results = list(search.results())
+        recent = [p for p in results if p.published.year >= cutoff_year]
+
+        if not recent:
+            return f"No recent papers (last 2 years) found for: {topic}"
+
+        top = recent[:6]
+
+        output = [f"Recent Advances on '{clean_topic}' (last 2 years):\n"]
+
+        for i, paper in enumerate(top, 1):
+            authors = ", ".join(a.name for a in paper.authors[:3])
+            if len(paper.authors) > 3:
+                authors += " et al."
+
+            output.append(
+                f"{i}. {paper.title}\n"
+                f"   Authors: {authors}\n"
+                f"   Year: {paper.published.year}\n"
+                f"   ArXiv ID: {paper.entry_id.split('/')[-1]}\n"
+                f"   Abstract: {paper.summary[:200]}...\n"
+            )
+
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"Recent advances search failed: {str(e)}"
 @tool("arXiv Search")
 def arxiv_search(query: str, max_results: int = 5) -> List[dict]:
     """
@@ -250,7 +513,7 @@ def get_llm_client():
     return LLM(
         # Adding the provider name explicitly helps CrewAI bridge to LiteLLM
         model="gemini-3-flash-preview",
-        api_key=os.getenv("GEMINI_API_KEY5"),
+        api_key=os.getenv("GEMINI_API_KEY3"),
         # Optional: Add temperature or other params for better research results
         temperature=0.1 
     )
